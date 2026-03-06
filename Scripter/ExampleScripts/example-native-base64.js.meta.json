@@ -1,0 +1,16 @@
+{
+  "type": "clearscript",
+  "name": "Native Types Base64 Example",
+  "description": "Uses metadata nativeTypes to call .NET Base64 APIs without dynamic import.",
+  "nativeTypes": [
+    {
+      "name": "Convert",
+      "typeName": "System.Convert"
+    },
+    {
+      "name": "Encoding",
+      "typeName": "System.Text.Encoding"
+    }
+  ],
+  "dynamicImport": false
+}

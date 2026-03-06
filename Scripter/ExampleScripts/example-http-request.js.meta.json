@@ -1,0 +1,16 @@
+{
+  "type": "clearscript",
+  "name": "HTTP Request Example",
+  "description": "Uses HttpClient async task.",
+  "nativeTypes": [
+    {
+      "name": "HttpClient",
+      "typeName": "System.Net.Http.HttpClient, System.Net.Http"
+    },
+    {
+      "name": "TimeSpan",
+      "typeName": "System.TimeSpan"
+    }
+  ],
+  "dynamicImport": false
+}

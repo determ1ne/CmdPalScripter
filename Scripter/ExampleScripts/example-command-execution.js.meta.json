@@ -1,0 +1,8 @@
+{
+  "type": "clearscript",
+  "name": "Command Execution Example",
+  "description": "Uses built-in $() to run a shell command and return stdout.",
+  "nativeTypes": [],
+  "dynamicImport": false,
+  "commandExecution": true
+}

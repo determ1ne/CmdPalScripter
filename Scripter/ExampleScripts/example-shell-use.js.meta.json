@@ -1,0 +1,8 @@
+{
+  "type": "clearscript",
+  "name": "Shell Use Example",
+  "description": "Creates a bound shell runner with $.use('pwsh').",
+  "nativeTypes": [],
+  "dynamicImport": false,
+  "commandExecution": true
+}

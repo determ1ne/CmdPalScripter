@@ -1,0 +1,12 @@
+{
+  "type": "clearscript",
+  "name": "Sleep Example",
+  "description": "Sleeps for 3 seconds to test busy indicator.",
+  "nativeTypes": [
+    {
+      "name": "Thread",
+      "typeName": "System.Threading.Thread"
+    }
+  ],
+  "dynamicImport": false
+}

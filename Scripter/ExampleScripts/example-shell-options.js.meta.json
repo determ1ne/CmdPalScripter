@@ -1,0 +1,8 @@
+{
+  "type": "clearscript",
+  "name": "Shell Options Example",
+  "description": "Uses $(command, { shell }) with cmd and powershell.",
+  "nativeTypes": [],
+  "dynamicImport": false,
+  "commandExecution": true
+}

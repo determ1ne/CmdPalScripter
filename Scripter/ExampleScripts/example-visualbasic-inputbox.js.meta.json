@@ -1,0 +1,7 @@
+{
+  "type": "clearscript",
+  "name": "Visual Basic InputBox Example",
+  "description": "Uses Microsoft.VisualBasic.Interaction.InputBox and returns the entered text.",
+  "nativeTypes": [],
+  "dynamicImport": true
+}

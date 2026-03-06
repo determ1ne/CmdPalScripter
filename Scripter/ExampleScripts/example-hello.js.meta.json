@@ -1,0 +1,7 @@
+{
+  "type": "clearscript",
+  "name": "Hello Example",
+  "description": "Returns a greeting string.",
+  "nativeTypes": [],
+  "dynamicImport": false
+}

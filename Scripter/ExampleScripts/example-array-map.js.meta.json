@@ -1,0 +1,7 @@
+{
+  "type": "clearscript",
+  "name": "Array Map Example",
+  "description": "Transforms values and returns the result list.",
+  "nativeTypes": [],
+  "dynamicImport": false
+}

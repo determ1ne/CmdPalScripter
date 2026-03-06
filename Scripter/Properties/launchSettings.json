@@ -1,0 +1,11 @@
+{
+  "profiles": {
+    "Scripter (Package)": {
+      "commandName": "MsixPackage",
+      "doNotLaunchApp": true
+    },
+    "Scripter (Unpackaged)": {
+      "commandName": "Project"
+    }
+  }
+}

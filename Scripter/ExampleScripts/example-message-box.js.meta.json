@@ -1,0 +1,7 @@
+{
+  "type": "clearscript",
+  "name": "Message Box Example",
+  "description": "Uses built-in messageBox() and shows a native MessageBox.",
+  "nativeTypes": [],
+  "dynamicImport": false
+}
