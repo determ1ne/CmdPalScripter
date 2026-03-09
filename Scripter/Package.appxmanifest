@@ -9,11 +9,9 @@
   IgnorableNamespaces="uap uap3 rescap">
 
   <Identity
-    Name="Scripter"
-    Publisher="CN=Microsoft Corporation, O=Microsoft Corporation, L=Redmond, S=Washington, C=US"
-    Version="0.0.1.0" />
-  <!-- When you're ready to publish your extension, you'll need to change the
-       Publisher= to match your own identity -->
+    Name="Azuk.ScripterforCommandPalette"
+    Publisher="CN=632C40E2-C010-4DAF-9C4C-B6D3F01D3B67"
+    Version="0.1.0.0" />
 
   <Properties>
     <DisplayName>Scripter for Command Palette</DisplayName>
@@ -36,12 +34,13 @@
       EntryPoint="$targetentrypoint$">
       <uap:VisualElements
         DisplayName="Scripter for Command Palette"
-        Description="Scripter for Command Palette"
+        Description="Scripter is a Command Palette extension for running scripts conveniently with Microsoft PowerToys Command Palette"
         BackgroundColor="transparent"
         Square150x150Logo="Assets\Square150x150Logo.png"
         Square44x44Logo="Assets\Square44x44Logo.png">
         <uap:DefaultTile Wide310x150Logo="Assets\Wide310x150Logo.png"  Square71x71Logo="Assets\SmallTile.png" Square310x310Logo="Assets\LargeTile.png"/>
         <uap:SplashScreen Image="Assets\SplashScreen.png" />
+        <uap:LockScreen BadgeLogo="Assets\BadgeLogo.png" Notification="badge"/>
       </uap:VisualElements>
       <Extensions>
         <com:Extension Category="windows.comServer">

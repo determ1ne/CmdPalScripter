@@ -14,82 +14,27 @@
     <PublishProfile>win-$(Platform).pubxml</PublishProfile>
     <EnableMsixTooling>true</EnableMsixTooling>
     <Nullable>enable</Nullable>
+
+    <AppxPackageIdentityName>Azuk.ScripterforCommandPalette</AppxPackageIdentityName>
+    <AppxPackagePublisher>CN=632C40E2-C010-4DAF-9C4C-B6D3F01D3B67</AppxPackagePublisher>
+    <AppxPackageVersion>0.0.1.0</AppxPackageVersion>
   </PropertyGroup>
   <ItemGroup>
-    <None Remove="Assets\LargeTile.png" />
-    <None Remove="Assets\LargeTile.scale-100.png" />
-    <None Remove="Assets\LargeTile.scale-200.png" />
-    <None Remove="Assets\LargeTile.scale-400.png" />
-    <None Remove="Assets\SmallTile.png" />
-    <None Remove="Assets\SmallTile.scale-100.png" />
-    <None Remove="Assets\SmallTile.scale-200.png" />
-    <None Remove="Assets\SmallTile.scale-400.png" />
-    <None Remove="Assets\SplashScreen.png" />
-    <None Remove="Assets\SplashScreen.scale-100.png" />
-    <None Remove="Assets\SplashScreen.scale-400.png" />
-    <None Remove="Assets\Square150x150Logo.png" />
-    <None Remove="Assets\Square44x44Logo.altform-lightunplated_targetsize-16.png" />
-    <None Remove="Assets\Square44x44Logo.altform-lightunplated_targetsize-256.png" />
-    <None Remove="Assets\Square44x44Logo.altform-lightunplated_targetsize-48.png" />
-    <None Remove="Assets\Square44x44Logo.altform-unplated_targetsize-16.png" />
-    <None Remove="Assets\Square44x44Logo.altform-unplated_targetsize-256.png" />
-    <None Remove="Assets\Square44x44Logo.altform-unplated_targetsize-48.png" />
-    <None Remove="Assets\Square44x44Logo.png" />
-    <None Remove="Assets\Square44x44Logo.scale-100.png" />
-    <None Remove="Assets\Square44x44Logo.scale-400.png" />
-    <None Remove="Assets\Square44x44Logo.targetsize-16.png" />
-    <None Remove="Assets\Square44x44Logo.targetsize-256.png" />
-    <None Remove="Assets\Square44x44Logo.targetsize-48.png" />
-    <None Remove="Assets\StoreLogo.backup.png" />
-    <None Remove="Assets\StoreLogo.png" />
-    <None Remove="Assets\StoreLogo.scale-100.png" />
-    <None Remove="Assets\StoreLogo.scale-200.png" />
-    <None Remove="Assets\StoreLogo.scale-400.png" />
-    <None Remove="Assets\Wide310x150Logo.png" />
-    <None Remove="Assets\Wide310x150Logo.scale-100.png" />
-    <None Remove="Assets\Wide310x150Logo.scale-400.png" />
-  </ItemGroup>
-
-  <ItemGroup>
-    <Content Include="Assets\LargeTile.png" />
-    <Content Include="Assets\LargeTile.scale-100.png" />
-    <Content Include="Assets\LargeTile.scale-200.png" />
-    <Content Include="Assets\LargeTile.scale-400.png" />
-    <Content Include="Assets\SmallTile.png" />
-    <Content Include="Assets\SmallTile.scale-100.png" />
-    <Content Include="Assets\SmallTile.scale-200.png" />
-    <Content Include="Assets\SmallTile.scale-400.png" />
-    <Content Include="Assets\SplashScreen.png" />
-    <Content Include="Assets\SplashScreen.scale-100.png" />
-    <Content Include="Assets\SplashScreen.scale-200.png" />
-    <Content Include="Assets\SplashScreen.scale-400.png" />
-    <Content Include="Assets\Square150x150Logo.png" />
-    <Content Include="Assets\Square44x44Logo.altform-lightunplated_targetsize-16.png" />
-    <Content Include="Assets\Square44x44Logo.altform-lightunplated_targetsize-256.png" />
-    <Content Include="Assets\Square44x44Logo.altform-lightunplated_targetsize-48.png" />
-    <Content Include="Assets\Square44x44Logo.altform-unplated_targetsize-16.png" />
-    <Content Include="Assets\Square44x44Logo.altform-unplated_targetsize-256.png" />
-    <Content Include="Assets\Square44x44Logo.altform-unplated_targetsize-48.png" />
-    <Content Include="Assets\Square44x44Logo.png" />
-    <Content Include="Assets\Square44x44Logo.scale-100.png" />
-    <Content Include="Assets\Square44x44Logo.scale-200.png" />
-    <Content Include="Assets\Square44x44Logo.scale-400.png" />
-    <Content Include="Assets\Square44x44Logo.targetsize-16.png" />
-    <Content Include="Assets\Square44x44Logo.targetsize-256.png" />
-    <Content Include="Assets\Square44x44Logo.targetsize-48.png" />
-    <Content Include="Assets\StoreLogo.png" />
-    <Content Include="Assets\StoreLogo.scale-100.png" />
-    <Content Include="Assets\StoreLogo.scale-200.png" />
-    <Content Include="Assets\StoreLogo.scale-400.png" />
-    <Content Include="Assets\Wide310x150Logo.png" />
-    <Content Include="Assets\Wide310x150Logo.scale-100.png" />
-    <Content Include="Assets\Wide310x150Logo.scale-200.png" />
-    <Content Include="Assets\Wide310x150Logo.scale-400.png" />
+    <Content Include="Assets\**\*.png" />
   </ItemGroup>
 
   <ItemGroup>
     <Manifest Include="$(ApplicationManifest)" />
   </ItemGroup>
+  <Target Name="PrepareAssets" BeforeTargets="BeforeBuild">
+    <!-- Copy scale-specific assets to base filenames expected by store validations -->
+    <Copy SourceFiles="$(MSBuildProjectDirectory)\Assets\Square150x150Logo.scale-200.png" DestinationFiles="$(MSBuildProjectDirectory)\Assets\Square150x150Logo.png" SkipUnchangedFiles="true" />
+    <Copy SourceFiles="$(MSBuildProjectDirectory)\Assets\Square44x44Logo.scale-200.png" DestinationFiles="$(MSBuildProjectDirectory)\Assets\SmallTile.png" SkipUnchangedFiles="true" />
+    <Copy SourceFiles="$(MSBuildProjectDirectory)\Assets\Wide310x150Logo.scale-200.png" DestinationFiles="$(MSBuildProjectDirectory)\Assets\Wide310x150Logo.png" SkipUnchangedFiles="true" />
+    <Copy SourceFiles="$(MSBuildProjectDirectory)\Assets\SplashScreen.scale-200.png" DestinationFiles="$(MSBuildProjectDirectory)\Assets\SplashScreen.png" SkipUnchangedFiles="true" />
+    <Copy SourceFiles="$(MSBuildProjectDirectory)\Assets\Square150x150Logo.scale-200.png" DestinationFiles="$(MSBuildProjectDirectory)\Assets\LargeTile.png" SkipUnchangedFiles="true" />
+    <Copy SourceFiles="$(MSBuildProjectDirectory)\Assets\StoreLogo.scale-100.png" DestinationFiles="$(MSBuildProjectDirectory)\Assets\StoreLogo.png" SkipUnchangedFiles="true" />
+  </Target>
 
   <!--
     Defining the "Msix" ProjectCapability here allows the Single-project MSIX Packaging
@@ -144,6 +89,8 @@
     <!-- When publishing trimmed, make sure to treat trimming warnings as build errors -->
     <ILLinkTreatWarningsAsErrors>true</ILLinkTreatWarningsAsErrors>
     <DefaultLanguage>en-US</DefaultLanguage>
+    <PackageCertificateThumbprint>6E7392588C0626A87C2AA6367DAE30844913EB71</PackageCertificateThumbprint>
+    <AppxPackageSigningEnabled>True</AppxPackageSigningEnabled>
 
   </PropertyGroup>
 
