@@ -1,0 +1,13 @@
+{
+  "type": "clearscript",
+  "name": "Exported function examples",
+  "description": "Adds numbers using rest or fixed parameters",
+  "export": [
+    "add_many_numbers",
+    "add_just_two",
+    "print_example"
+  ],
+  "nativeTypes": [],
+  "dynamicImport": false,
+  "commandExecution": false
+}
