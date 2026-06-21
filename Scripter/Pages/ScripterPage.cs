@@ -20,7 +20,10 @@ internal sealed partial class ScripterPage : DynamicListPage
     private readonly ScriptStorageService _storageService;
     private readonly ScriptPermissionService _permissionService;
     private readonly ScriptExecutionService _executionService;
+    private readonly Action? _scriptsReloaded;
     private readonly List<ScriptFileEntry> _scriptEntries = [];
+
+    internal IReadOnlyList<ScriptFileEntry> ScriptEntries => _scriptEntries;
 
     public ScripterPage()
         : this(new ScriptStorageService(), new ScripterSettingsManager())
@@ -33,11 +36,27 @@ internal sealed partial class ScripterPage : DynamicListPage
     }
 
     internal ScripterPage(ScriptStorageService storageService, ScripterSettingsManager settingsManager)
+        : this(
+            storageService,
+            settingsManager,
+            new ScriptPermissionService(storageService.RootDirectory),
+            new ScriptExecutionService(settingsManager),
+            null)
+    {
+    }
+
+    internal ScripterPage(
+        ScriptStorageService storageService,
+        ScripterSettingsManager settingsManager,
+        ScriptPermissionService permissionService,
+        ScriptExecutionService executionService,
+        Action? scriptsReloaded)
     {
         _settingsManager = settingsManager;
         _storageService = storageService;
-        _permissionService = new ScriptPermissionService(_storageService.RootDirectory);
-        _executionService = new ScriptExecutionService(_settingsManager);
+        _permissionService = permissionService;
+        _executionService = executionService;
+        _scriptsReloaded = scriptsReloaded;
 
         Icon = IconHelpers.FromRelativePath("Assets\\StoreLogo.png");
         Title = "Script Library";
@@ -49,7 +68,7 @@ internal sealed partial class ScripterPage : DynamicListPage
             Subtitle = _storageService.ScriptsDirectory,
         };
 
-        ReloadScripts();
+        ReloadScripts(notify: false);
     }
 
     public override void UpdateSearchText(string oldSearch, string newSearch)
@@ -142,10 +161,14 @@ internal sealed partial class ScripterPage : DynamicListPage
             || Path.GetFileName(entry.Path).Contains(query, StringComparison.OrdinalIgnoreCase);
     }
 
-    private void ReloadScripts()
+    private void ReloadScripts(bool notify = true)
     {
         _scriptEntries.Clear();
         _scriptEntries.AddRange(_storageService.GetScriptEntries());
+        if (notify)
+        {
+            _scriptsReloaded?.Invoke();
+        }
     }
 
     private ListItem CreateReloadItem()
