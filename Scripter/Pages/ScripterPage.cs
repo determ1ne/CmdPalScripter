@@ -65,21 +65,71 @@ internal sealed partial class ScripterPage : DynamicListPage
     public override IListItem[] GetItems()
     {
         var query = SearchText.Trim();
-        var matchingEntries = string.IsNullOrWhiteSpace(query)
-            ? _scriptEntries
-            : _scriptEntries.Where(entry => MatchesQuery(entry, query)).ToList();
+        var exportedFunctions = _scriptEntries
+            .SelectMany(entry => entry.Metadata.Export
+                .Where(ScriptInvocationParser.IsValidFunctionName)
+                .Distinct(StringComparer.Ordinal)
+                .Select(functionName => (Entry: entry, FunctionName: functionName)))
+            .ToList();
+        var directInvocations = exportedFunctions
+            .Select(exported =>
+            {
+                var matched = ScriptInvocationParser.TryParse(query, exported.FunctionName, out var invocation);
+                return (exported.Entry, exported.FunctionName, Matched: matched, Invocation: invocation);
+            })
+            .Where(candidate => candidate.Matched)
+            .ToList();
 
-        var items = new List<IListItem>
-        {
-            CreateScratchpadItem(),
-            CreateStopRunningItem(),
-            CreateOpenScriptsFolderItem(),
-            CreateReloadItem(),
-        };
+        var items = new List<IListItem>();
 
-        foreach (var entry in matchingEntries.OrderBy(e => e.Metadata.Name, StringComparer.OrdinalIgnoreCase))
+        if (directInvocations.Count > 0)
         {
-            items.Add(CreateScriptFileItem(entry));
+            foreach (var candidate in directInvocations
+                .OrderBy(candidate => candidate.FunctionName, StringComparer.OrdinalIgnoreCase)
+                .ThenBy(candidate => candidate.Entry.Metadata.Name, StringComparer.OrdinalIgnoreCase))
+            {
+                items.Add(CreateExportedFunctionItem(candidate.Entry, candidate.FunctionName, candidate.Invocation, SearchText));
+            }
+
+            return items.ToArray();
+        }
+
+        items.Add(CreateScratchpadItem());
+        items.Add(CreateStopRunningItem());
+        items.Add(CreateOpenScriptsFolderItem());
+        items.Add(CreateReloadItem());
+
+        foreach (var entry in _scriptEntries.OrderBy(e => e.Metadata.Name, StringComparer.OrdinalIgnoreCase))
+        {
+            if (entry.Metadata.Export.Count == 0)
+            {
+                if (string.IsNullOrWhiteSpace(query) || MatchesQuery(entry, query))
+                {
+                    items.Add(CreateScriptFileItem(entry));
+                }
+
+                continue;
+            }
+
+            foreach (var functionName in entry.Metadata.Export.Distinct(StringComparer.Ordinal))
+            {
+                if (!ScriptInvocationParser.IsValidFunctionName(functionName))
+                {
+                    if (string.IsNullOrWhiteSpace(query) || functionName.Contains(query, StringComparison.OrdinalIgnoreCase))
+                    {
+                        items.Add(CreateInvalidExportItem(entry, functionName));
+                    }
+
+                    continue;
+                }
+
+                if (string.IsNullOrWhiteSpace(query)
+                    || functionName.Contains(query, StringComparison.OrdinalIgnoreCase)
+                    || MatchesQuery(entry, query))
+                {
+                    items.Add(CreateExportedFunctionItem(entry, functionName, new ScriptInvocation(functionName, [])));
+                }
+            }
         }
 
         return items.ToArray();
@@ -168,7 +218,7 @@ internal sealed partial class ScripterPage : DynamicListPage
             : string.Join(", ", entry.Metadata.NativeTypes.Select(t => t.Name));
         var dynamicImport = entry.Metadata.DynamicImport ? "enabled" : "disabled";
 
-        var command = new RunScriptFileCommand(entry, _storageService, _executionService, _permissionService)
+        var command = new RunScriptFileCommand(entry, _storageService, _executionService, _permissionService, ScriptInvocation.WholeScript)
         {
             Name = "Run script",
         };
@@ -183,6 +233,46 @@ internal sealed partial class ScripterPage : DynamicListPage
             {
                 Title = entry.Metadata.Name,
                 Body = $"{entry.Metadata.Description}\nType: {entry.Metadata.Type}\nNative types: {nativeTypeList}\nDynamic import: {dynamicImport}\nCommand execution: {(entry.Metadata.CommandExecution ? "enabled" : "disabled")}\nLogo: `{entry.LogoPath ?? "default"}`\nPath: `{entry.Path}`",
+            },
+        };
+    }
+
+    private ListItem CreateExportedFunctionItem(
+        ScriptFileEntry entry,
+        string functionName,
+        ScriptInvocation invocation,
+        string? textToSuggest = null)
+    {
+        var command = new RunScriptFileCommand(entry, _storageService, _executionService, _permissionService, invocation)
+        {
+            Name = $"Run {functionName}",
+        };
+
+        return new ListItem(command)
+        {
+            Title = functionName,
+            Subtitle = $"{entry.Metadata.Name} — {entry.Metadata.Description}",
+            TextToSuggest = textToSuggest ?? functionName,
+            Icon = entry.LogoPath is null ? DefaultItemIcon : new IconInfo(entry.LogoPath),
+            Details = new Details()
+            {
+                Title = functionName,
+                Body = $"Exported by: {entry.Metadata.Name}\n{entry.Metadata.Description}\nPath: `{entry.Path}`",
+            },
+        };
+    }
+
+    private static ListItem CreateInvalidExportItem(ScriptFileEntry entry, string functionName)
+    {
+        return new ListItem(new NoOpCommand())
+        {
+            Title = $"Invalid export: {functionName}",
+            Subtitle = $"{entry.Metadata.Name} — export names must be JavaScript identifiers",
+            Icon = new IconInfo("\uEA39"),
+            Details = new Details()
+            {
+                Title = "Invalid script metadata",
+                Body = $"`{functionName}` is not a valid JavaScript identifier.\nPath: `{entry.Path}.meta.json`",
             },
         };
     }
@@ -305,17 +395,20 @@ internal sealed partial class RunScriptFileCommand : InvokableCommand
     private readonly ScriptStorageService _storageService;
     private readonly ScriptExecutionService _executionService;
     private readonly ScriptPermissionService _permissionService;
+    private readonly ScriptInvocation _invocation;
 
     public RunScriptFileCommand(
         ScriptFileEntry entry,
         ScriptStorageService storageService,
         ScriptExecutionService executionService,
-        ScriptPermissionService permissionService)
+        ScriptPermissionService permissionService,
+        ScriptInvocation invocation)
     {
         _entry = entry;
         _storageService = storageService;
         _executionService = executionService;
         _permissionService = permissionService;
+        _invocation = invocation;
     }
 
     public override CommandResult Invoke()
@@ -334,7 +427,7 @@ internal sealed partial class RunScriptFileCommand : InvokableCommand
             {
                 Title = "⚠ Allow script permissions",
                 Description = ScriptPermissionDescriptionFormatter.BuildDescription(_entry.Metadata.Name, _entry.Metadata),
-                PrimaryCommand = new ApproveAndRunScriptCommand(_entry, _storageService, _executionService, _permissionService, script)
+                PrimaryCommand = new ApproveAndRunScriptCommand(_entry, _storageService, _executionService, _permissionService, script, _invocation)
                 {
                     Name = "Allow and run",
                 },
@@ -355,7 +448,7 @@ internal sealed partial class RunScriptFileCommand : InvokableCommand
     private CommandResult StartFileRun(string script)
     {
         var busy = ScriptRunStatus.Show(_entry.Metadata.Name);
-        _ = _executionService.ExecuteAsync(script, _entry.Metadata.NativeTypes, _entry.Metadata.DynamicImport, _entry.Metadata.CommandExecution).ContinueWith(task =>
+        _ = _executionService.ExecuteAsync(script, _entry.Metadata.NativeTypes, _entry.Metadata.DynamicImport, _entry.Metadata.CommandExecution, _invocation).ContinueWith(task =>
         {
             var result = task.Result;
             var prefix = result.IsSuccess ? "Ran" : "Failed";
@@ -389,18 +482,21 @@ internal sealed partial class ApproveAndRunScriptCommand : InvokableCommand
     private readonly ScriptExecutionService _executionService;
     private readonly ScriptPermissionService _permissionService;
     private readonly string _expectedFingerprint;
+    private readonly ScriptInvocation _invocation;
 
     public ApproveAndRunScriptCommand(
         ScriptFileEntry entry,
         ScriptStorageService storageService,
         ScriptExecutionService executionService,
         ScriptPermissionService permissionService,
-        string scriptSnapshot)
+        string scriptSnapshot,
+        ScriptInvocation invocation)
     {
         _entry = entry;
         _storageService = storageService;
         _executionService = executionService;
         _permissionService = permissionService;
+        _invocation = invocation;
         _expectedFingerprint = ScriptPermissionService.ComputeFingerprint(scriptSnapshot, _entry.Metadata);
     }
 
@@ -424,7 +520,7 @@ internal sealed partial class ApproveAndRunScriptCommand : InvokableCommand
         }
 
         var busy = ScriptRunStatus.Show(_entry.Metadata.Name);
-        _ = _executionService.ExecuteAsync(script, _entry.Metadata.NativeTypes, _entry.Metadata.DynamicImport, _entry.Metadata.CommandExecution).ContinueWith(task =>
+        _ = _executionService.ExecuteAsync(script, _entry.Metadata.NativeTypes, _entry.Metadata.DynamicImport, _entry.Metadata.CommandExecution, _invocation).ContinueWith(task =>
         {
             var result = task.Result;
             var prefix = result.IsSuccess ? "Ran" : "Failed";

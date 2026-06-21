@@ -147,7 +147,10 @@ internal sealed class ScriptStorageService
             var nativeTypes = metadata.NativeTypes ?? [];
 
             var scriptType = string.IsNullOrWhiteSpace(metadata.Type) ? ClearScriptType : metadata.Type;
-            return new ScriptMetadata(name, description, nativeTypes, metadata.DynamicImport, metadata.CommandExecution, scriptType);
+            var exportedFunctions = metadata.Export?
+                .Select(functionName => functionName ?? string.Empty)
+                .ToArray() ?? [];
+            return new ScriptMetadata(name, description, nativeTypes, metadata.DynamicImport, metadata.CommandExecution, scriptType, exportedFunctions);
         }
         catch
         {
@@ -188,15 +191,16 @@ internal sealed record ScriptMetadata(
     IReadOnlyList<ScriptNativeType> NativeTypes,
     bool DynamicImport,
     bool CommandExecution,
-    string Type)
+    string Type,
+    IReadOnlyList<string> Export)
 {
     public ScriptMetadata(string name, string description)
-        : this(name, description, [], false, false, ScriptStorageService.ClearScriptType)
+        : this(name, description, [], false, false, ScriptStorageService.ClearScriptType, [])
     {
     }
 
     public ScriptMetadata(string name, string description, IReadOnlyList<ScriptNativeType> nativeTypes, bool dynamicImport, bool commandExecution)
-        : this(name, description, nativeTypes, dynamicImport, commandExecution, ScriptStorageService.ClearScriptType)
+        : this(name, description, nativeTypes, dynamicImport, commandExecution, ScriptStorageService.ClearScriptType, [])
     {
     }
 }
@@ -224,6 +228,9 @@ internal sealed class ScriptMetadataFile
 
     [JsonPropertyName("type")]
     public string Type { get; set; } = ScriptStorageService.ClearScriptType;
+
+    [JsonPropertyName("export")]
+    public List<string>? Export { get; set; }
 }
 
 internal sealed record ScriptFileEntry(string Path, ScriptMetadata Metadata, string? LogoPath);

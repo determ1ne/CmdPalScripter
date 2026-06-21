@@ -29,23 +29,25 @@ internal sealed class ScriptExecutionService
         string script,
         IReadOnlyList<ScriptNativeType>? exposedTypes = null,
         bool enableDynamicImport = false,
-        bool allowCommandExecution = false)
+        bool allowCommandExecution = false,
+        ScriptInvocation? invocation = null)
     {
-        return ExecuteCore(script, exposedTypes, enableDynamicImport, allowCommandExecution);
+        return ExecuteCore(script, exposedTypes, enableDynamicImport, allowCommandExecution, invocation ?? ScriptInvocation.WholeScript);
     }
 
     public Task<ScriptExecutionResult> ExecuteAsync(
         string script,
         IReadOnlyList<ScriptNativeType>? exposedTypes = null,
         bool enableDynamicImport = false,
-        bool allowCommandExecution = false)
+        bool allowCommandExecution = false,
+        ScriptInvocation? invocation = null)
     {
         if (IsRunning)
         {
             return Task.FromResult(new ScriptExecutionResult(false, "Another script is already running.", 0));
         }
 
-        return Task.Run(() => ExecuteCore(script, exposedTypes, enableDynamicImport, allowCommandExecution));
+        return Task.Run(() => ExecuteCore(script, exposedTypes, enableDynamicImport, allowCommandExecution, invocation ?? ScriptInvocation.WholeScript));
     }
 
     public bool IsRunning
@@ -78,7 +80,8 @@ internal sealed class ScriptExecutionService
         string script,
         IReadOnlyList<ScriptNativeType>? exposedTypes,
         bool enableDynamicImport,
-        bool allowCommandExecution)
+        bool allowCommandExecution,
+        ScriptInvocation invocation)
     {
         var stopwatch = Stopwatch.StartNew();
         using var runCancellation = new CancellationTokenSource();
@@ -134,7 +137,29 @@ internal sealed class ScriptExecutionService
                 }
             }
 
-            var result = engine.Evaluate(script);
+            object? result;
+            if (invocation.FunctionName is null)
+            {
+                result = engine.Evaluate(script);
+            }
+            else
+            {
+                engine.Execute(script);
+                if (!ScriptInvocationParser.IsValidFunctionName(invocation.FunctionName)
+                    || engine.Evaluate($"typeof globalThis.{invocation.FunctionName} === 'function'") is not true)
+                {
+                    throw new MissingMethodException($"Exported function '{invocation.FunctionName}' was not defined by the script.");
+                }
+
+                var globalObject = (ScriptObject)engine.Script;
+                var exportedValue = globalObject.GetProperty(invocation.FunctionName);
+                if (exportedValue is not ScriptObject exportedFunction)
+                {
+                    throw new MissingMethodException($"Exported function '{invocation.FunctionName}' was not defined by the script.");
+                }
+
+                result = exportedFunction.Invoke(false, invocation.Arguments.Cast<object>().ToArray());
+            }
             if (result is Task t)
             {
                 result = ScriptBuiltins.ResolveAwaitable(t, runCancellation.Token);
