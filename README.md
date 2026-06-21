@@ -66,6 +66,8 @@ function add_just_two(a, b) {
 
 Export names must be JavaScript identifiers. Quotes preserve spaces within an argument. Missing, `null`, or empty `export` metadata keeps the original behavior of executing the entire script. In export mode, top-level code still runs before the selected function is called, so top-level code should normally contain only declarations and initialization.
 
+Exported functions are also registered as top-level Command Palette commands, so their argument pages can be opened without first opening the Scripts page. Script metadata is refreshed when the extension starts or **Reload scripts** is selected. Script source is read from disk each time a command runs.
+
 ## Permissions
 
 On first run for a script requiring elevated capabilities, Scripter shows an **Approve and run** dialog.
