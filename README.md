@@ -59,6 +59,7 @@ When `commandExecution` is enabled, scripts can run commands in two ways.
 const output = $('echo "Hello World"');
 const started = $('start "" cmd.exe /k ping -t 8.8.8.8');
 const pwshOutput = $('Write-Output "Hello World"', { shell: 'powershell' });
+const utf8Output = $('some-utf8-tool.exe', { encoding: 'utf-8' });
 ```
 
 The default shell is `cmd`. Supported shell names are `cmd`, `powershell`, and `pwsh`. For `cmd`, the raw command text is passed to `cmd.exe /d /c`, so `cmd` syntax such as `start "" ...` works as it does in a normal Command Prompt.
@@ -68,9 +69,12 @@ Use `$.exec(fileName, args, options)` when arguments should be passed as real ar
 ```javascript
 $.exec('some.exe', ['', 'Hello World']);
 $.exec('cmd.exe', ['/k', 'ping', '-t', '8.8.8.8'], { window: true });
+$.exec('some-utf8-tool.exe', [], { encoding: 'utf-8' });
 ```
 
 `$.exec` converts every argument to a string and preserves empty strings and spaces. By default it waits and captures output. With `{ window: true }`, it opens a visible process window and returns immediately unless `{ wait: true }` is also set. `options.workingDirectory` sets the process working directory.
+
+Captured command output uses the Windows OEM code page by default, matching localized console tools such as `nslookup.exe` on Chinese Windows. Use `encoding` to override this when a tool emits UTF-8 or another encoding. Supported values include `oem`, `utf-8`, an encoding name, or a numeric code page such as `936`.
 
 ## Exported function commands
 
