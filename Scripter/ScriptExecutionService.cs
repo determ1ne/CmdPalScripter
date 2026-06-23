@@ -5,6 +5,8 @@ using System.Diagnostics.CodeAnalysis;
 using System.Linq;
 using System.Reflection;
 using System.Text;
+using System.Text.Json;
+using System.Text.Json.Serialization;
 using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.ClearScript;
@@ -114,7 +116,13 @@ internal sealed class ScriptExecutionService
             engine.Execute(
                 "globalThis.$ = function(command, options) { "
                 + "var shell = options && typeof options === 'object' ? options.shell : undefined; "
-                + "return shell === undefined ? builtins.RunCommand(command) : builtins.RunCommandWithShell(command, shell); };");
+                + "return shell == null ? builtins.RunCommand(String(command)) : builtins.RunCommandWithShell(String(command), String(shell)); };");
+            engine.Execute(
+                "globalThis.$.exec = function(fileName, args, options) { "
+                + "if (args === undefined || args === null) args = []; "
+                + "if (!Array.isArray(args)) throw new TypeError('$.exec args must be an array.'); "
+                + "var normalizedArgs = args.map(function(arg) { return arg === undefined || arg === null ? '' : String(arg); }); "
+                + "return builtins.RunProcess(String(fileName), JSON.stringify(normalizedArgs), JSON.stringify(options || {})); };");
             engine.Execute(
                 "globalThis.$.use = function(shell) { "
                 + "return function(command, options) { "
@@ -253,10 +261,7 @@ public sealed class ScriptBuiltins
     [SuppressMessage("Performance", "CA1822:Mark members as static", Justification = "Exposed as host object instance methods for ClearScript.")]
     public string RunCommandWithShell(string command, string shell)
     {
-        if (!_allowCommandExecution)
-        {
-            throw new InvalidOperationException("Command execution is disabled for this script. Enable commandExecution in script metadata.");
-        }
+        EnsureCommandExecutionAllowed();
 
         if (string.IsNullOrWhiteSpace(command))
         {
@@ -270,6 +275,128 @@ public sealed class ScriptBuiltins
 
         var cancellationToken = _cancellationProvider();
         var startInfo = CreateStartInfo(command, shell);
+        return RunAndCapture(startInfo, cancellationToken);
+    }
+
+    public string RunProcess(string fileName, string argsJson, string optionsJson)
+    {
+        EnsureCommandExecutionAllowed();
+
+        if (string.IsNullOrWhiteSpace(fileName))
+        {
+            throw new ArgumentException("File name cannot be empty.", nameof(fileName));
+        }
+
+        var args = JsonSerializer.Deserialize<string[]>(argsJson) ?? [];
+        var options = JsonSerializer.Deserialize<RunProcessOptions>(optionsJson) ?? new RunProcessOptions();
+        var showWindow = options.Window ?? false;
+        var wait = options.Wait ?? !showWindow;
+        var captureOutput = !showWindow && wait;
+
+        var startInfo = new ProcessStartInfo
+        {
+            FileName = fileName,
+            UseShellExecute = false,
+            CreateNoWindow = !showWindow,
+            RedirectStandardOutput = captureOutput,
+            RedirectStandardError = captureOutput,
+            StandardOutputEncoding = captureOutput ? Encoding.UTF8 : null,
+            StandardErrorEncoding = captureOutput ? Encoding.UTF8 : null,
+        };
+
+        if (!string.IsNullOrWhiteSpace(options.WorkingDirectory))
+        {
+            startInfo.WorkingDirectory = options.WorkingDirectory;
+        }
+
+        foreach (var arg in args)
+        {
+            startInfo.ArgumentList.Add(arg);
+        }
+
+        var cancellationToken = _cancellationProvider();
+        if (captureOutput)
+        {
+            return RunAndCapture(startInfo, cancellationToken);
+        }
+
+        using var process = new Process
+        {
+            StartInfo = startInfo,
+        };
+        process.Start();
+        if (wait)
+        {
+            while (!process.WaitForExit(100))
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+            }
+
+            if (process.ExitCode != 0)
+            {
+                throw new InvalidOperationException($"Command failed with exit code {process.ExitCode}.");
+            }
+
+            return $"Process exited successfully: {fileName}";
+        }
+
+        return $"Started process {process.Id}: {fileName}";
+    }
+
+    private static ProcessStartInfo CreateStartInfo(string command, string shell)
+    {
+        var startInfo = new ProcessStartInfo
+        {
+            RedirectStandardOutput = true,
+            RedirectStandardError = true,
+            UseShellExecute = false,
+            CreateNoWindow = true,
+            StandardOutputEncoding = Encoding.UTF8,
+            StandardErrorEncoding = Encoding.UTF8,
+        };
+
+        if (string.Equals(shell, "cmd", StringComparison.OrdinalIgnoreCase))
+        {
+            startInfo.FileName = "cmd.exe";
+            startInfo.Arguments = "/d /c " + command;
+            return startInfo;
+        }
+
+        if (string.Equals(shell, "powershell", StringComparison.OrdinalIgnoreCase))
+        {
+            startInfo.FileName = "powershell.exe";
+            startInfo.ArgumentList.Add("-NoProfile");
+            startInfo.ArgumentList.Add("-NonInteractive");
+            startInfo.ArgumentList.Add("-ExecutionPolicy");
+            startInfo.ArgumentList.Add("Bypass");
+            startInfo.ArgumentList.Add("-Command");
+            startInfo.ArgumentList.Add(command);
+            return startInfo;
+        }
+
+        if (string.Equals(shell, "pwsh", StringComparison.OrdinalIgnoreCase))
+        {
+            startInfo.FileName = "pwsh.exe";
+            startInfo.ArgumentList.Add("-NoProfile");
+            startInfo.ArgumentList.Add("-NonInteractive");
+            startInfo.ArgumentList.Add("-Command");
+            startInfo.ArgumentList.Add(command);
+            return startInfo;
+        }
+
+        throw new InvalidOperationException("Unsupported shell. Use 'cmd', 'powershell', or 'pwsh'.");
+    }
+
+    private void EnsureCommandExecutionAllowed()
+    {
+        if (!_allowCommandExecution)
+        {
+            throw new InvalidOperationException("Command execution is disabled for this script. Enable commandExecution in script metadata.");
+        }
+    }
+
+    private static string RunAndCapture(ProcessStartInfo startInfo, CancellationToken cancellationToken)
+    {
         using var process = new Process
         {
             StartInfo = startInfo,
@@ -307,53 +434,6 @@ public sealed class ScriptBuiltins
         }
     }
 
-    private static ProcessStartInfo CreateStartInfo(string command, string shell)
-    {
-        var startInfo = new ProcessStartInfo
-        {
-            RedirectStandardOutput = true,
-            RedirectStandardError = true,
-            UseShellExecute = false,
-            CreateNoWindow = true,
-            StandardOutputEncoding = Encoding.UTF8,
-            StandardErrorEncoding = Encoding.UTF8,
-        };
-
-        if (string.Equals(shell, "cmd", StringComparison.OrdinalIgnoreCase))
-        {
-            startInfo.FileName = "cmd.exe";
-            startInfo.ArgumentList.Add("/d");
-            startInfo.ArgumentList.Add("/s");
-            startInfo.ArgumentList.Add("/c");
-            startInfo.ArgumentList.Add(command);
-            return startInfo;
-        }
-
-        if (string.Equals(shell, "powershell", StringComparison.OrdinalIgnoreCase))
-        {
-            startInfo.FileName = "powershell.exe";
-            startInfo.ArgumentList.Add("-NoProfile");
-            startInfo.ArgumentList.Add("-NonInteractive");
-            startInfo.ArgumentList.Add("-ExecutionPolicy");
-            startInfo.ArgumentList.Add("Bypass");
-            startInfo.ArgumentList.Add("-Command");
-            startInfo.ArgumentList.Add(command);
-            return startInfo;
-        }
-
-        if (string.Equals(shell, "pwsh", StringComparison.OrdinalIgnoreCase))
-        {
-            startInfo.FileName = "pwsh.exe";
-            startInfo.ArgumentList.Add("-NoProfile");
-            startInfo.ArgumentList.Add("-NonInteractive");
-            startInfo.ArgumentList.Add("-Command");
-            startInfo.ArgumentList.Add(command);
-            return startInfo;
-        }
-
-        throw new InvalidOperationException("Unsupported shell. Use 'cmd', 'powershell', or 'pwsh'.");
-    }
-
     [UnconditionalSuppressMessage("Trimming", "IL2075", Justification = "Accessing Task<TResult>.Result via reflection for generic tasks.")]
     public static object? ResolveAwaitable(object value, CancellationToken cancellationToken)
     {
@@ -371,6 +451,18 @@ public sealed class ScriptBuiltins
         var resultProperty = task.GetType().GetProperty("Result", BindingFlags.Public | BindingFlags.Instance);
         return resultProperty is null ? null : resultProperty.GetValue(task);
     }
+}
+
+internal sealed class RunProcessOptions
+{
+    [JsonPropertyName("window")]
+    public bool? Window { get; set; }
+
+    [JsonPropertyName("wait")]
+    public bool? Wait { get; set; }
+
+    [JsonPropertyName("workingDirectory")]
+    public string? WorkingDirectory { get; set; }
 }
 
 public sealed class ScriptHostApi

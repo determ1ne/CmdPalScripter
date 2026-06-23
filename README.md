@@ -45,6 +45,29 @@ Fields:
 - `dynamicImport` - enables `importType(...)` interop function, allowing the script import native types from code
 - `commandExecution` - enables built-in `$` command execution
 
+## Command execution
+
+When `commandExecution` is enabled, scripts can run commands in two ways.
+
+`$(command, options)` keeps the existing raw shell-string behavior:
+
+```javascript
+const output = $('echo "Hello World"');
+const started = $('start "" cmd.exe /k ping -t 8.8.8.8');
+const pwshOutput = $('Write-Output "Hello World"', { shell: 'powershell' });
+```
+
+The default shell is `cmd`. Supported shell names are `cmd`, `powershell`, and `pwsh`. For `cmd`, the raw command text is passed to `cmd.exe /d /c`, so `cmd` syntax such as `start "" ...` works as it does in a normal Command Prompt.
+
+Use `$.exec(fileName, args, options)` when arguments should be passed as real argv values instead of shell text:
+
+```javascript
+$.exec('some.exe', ['', 'Hello World']);
+$.exec('cmd.exe', ['/k', 'ping', '-t', '8.8.8.8'], { window: true });
+```
+
+`$.exec` converts every argument to a string and preserves empty strings and spaces. By default it waits and captures output. With `{ window: true }`, it opens a visible process window and returns immediately unless `{ wait: true }` is also set. `options.workingDirectory` sets the process working directory.
+
 ## Exported function commands
 
 When `export` contains function names, each function is shown as a separate command. Everything typed after the complete function name is passed as string arguments:
