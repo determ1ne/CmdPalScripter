@@ -51,6 +51,7 @@
     <PackageReference Include="Microsoft.Windows.CsWinRT" />
     <PackageReference Include="Shmuelie.WinRTServer" />
     <PackageReference Include="System.Security.Cryptography.ProtectedData" />
+    <PackageReference Include="System.Text.Encoding.CodePages" />
 
     <!-- Needed to enable building an MSIX package -->
     <PackageReference Include="Microsoft.Windows.SDK.BuildTools.MSIX">
