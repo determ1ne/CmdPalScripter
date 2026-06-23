@@ -2,6 +2,10 @@
 
 Scripter is a Command Palette extension for running scripts conveniently with Microsoft PowerToys Command Palette.
 
+> **⚠️This is a vibe-coding project!**
+> While the software works in most cases,
+> please keep in mind that it hasn't been subjected to serious testing, and bugs are expected.
+
 ## Script storage
 
 User scripts are stored in:
