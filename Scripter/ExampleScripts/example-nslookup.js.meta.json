@@ -1,0 +1,11 @@
+{
+  "type": "clearscript",
+  "name": "NSLookup",
+  "description": "Exports nslookup(host), runs the system nslookup command, and shows the result.",
+  "export": [
+    "nslookup"
+  ],
+  "nativeTypes": [],
+  "dynamicImport": false,
+  "commandExecution": true
+}
