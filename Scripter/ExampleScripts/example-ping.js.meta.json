@@ -1,0 +1,11 @@
+{
+  "type": "clearscript",
+  "name": "Infinite Ping",
+  "description": "Exports ping(host), opens a Command Prompt window, and runs ping -t until the window is closed.",
+  "export": [
+    "ping"
+  ],
+  "nativeTypes": [],
+  "dynamicImport": false,
+  "commandExecution": true
+}
