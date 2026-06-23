@@ -3,6 +3,7 @@ using Shmuelie.WinRTServer;
 using Shmuelie.WinRTServer.CsWinRT;
 using Scripter.ScriptLibrary;
 using System;
+using System.Text;
 using System.Threading;
 
 namespace Scripter;
@@ -12,6 +13,7 @@ public class Program
     [MTAThread]
     public static void Main(string[] args)
     {
+        Encoding.RegisterProvider(CodePagesEncodingProvider.Instance);
         UiVisualStyleBootstrap.EnsureEnabled();
 
         if (args.Length > 0 && args[0] == "-RegisterProcessAsComServer")
