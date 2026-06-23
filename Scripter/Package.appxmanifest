@@ -11,7 +11,7 @@
   <Identity
     Name="Azuk.ScripterforCommandPalette"
     Publisher="CN=632C40E2-C010-4DAF-9C4C-B6D3F01D3B67"
-    Version="0.1.0.0" />
+    Version="0.2.0.0" />
 
   <Properties>
     <DisplayName>Scripter for Command Palette</DisplayName>
