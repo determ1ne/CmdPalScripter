@@ -1,10 +1,8 @@
-using System;
-using System.Linq;
 using System.Text;
 
-namespace Scripter;
+namespace Scripter.Core;
 
-internal static class ScriptPermissionDescriptionFormatter
+public static class ScriptPermissionDescriptionFormatter
 {
     public static string BuildDescription(string scriptName, ScriptMetadata metadata)
     {
@@ -15,15 +13,20 @@ internal static class ScriptPermissionDescriptionFormatter
         {
             builder.Append("- Dynamic Library Import: This script can import and execute code from external libraries at runtime.\n");
         }
+
         if (metadata.CommandExecution)
         {
             builder.Append("- Command Execution: This script can run arbitrary system commands.\n");
         }
+
+        if (metadata.NativeFfi)
+        {
+            builder.Append("- Native FFI: This script can load arbitrary DLLs and call unmanaged functions inside the Scripter process.\n");
+        }
+
         if (metadata.NativeTypes.Count > 0)
         {
-            builder.Append("- Native types: ")
-                .Append(string.Join(", ", metadata.NativeTypes.Select(t => t.TypeName)))
-                .Append('\n');
+            builder.Append("- Native types: ").Append(string.Join(", ", metadata.NativeTypes.Select(type => type.TypeName))).Append('\n');
         }
 
         builder.Append("\nGranting these permissions allows the script to perform actions that may affect your system's security and stability. Only grant permissions to scripts from trusted sources.");

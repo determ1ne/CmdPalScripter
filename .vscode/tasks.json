@@ -1,0 +1,41 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "Start Scripter Debug Watch",
+      "type": "process",
+      "command": "dotnet",
+      "args": [
+        "run",
+        "--project",
+        "${workspaceFolder}/Scripter.Cli/Scripter.Cli.csproj",
+        "--configuration",
+        "Debug",
+        "-p:Platform=x64",
+        "--",
+        "debug",
+        "${file}",
+        "--watch",
+        "--wait"
+      ],
+      "isBackground": true,
+      "problemMatcher": {
+        "owner": "scripter",
+        "pattern": {
+          "regexp": "^(.*)$",
+          "message": 1
+        },
+        "background": {
+          "activeOnStart": true,
+          "beginsPattern": "^\\[debug\\] Listening",
+          "endsPattern": "^\\[debug\\] Waiting for a debugger"
+        }
+      },
+      "presentation": {
+        "reveal": "always",
+        "panel": "dedicated",
+        "focus": true
+      }
+    }
+  ]
+}

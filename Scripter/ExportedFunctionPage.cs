@@ -1,6 +1,7 @@
 using System;
 using Microsoft.CommandPalette.Extensions;
 using Microsoft.CommandPalette.Extensions.Toolkit;
+using Scripter.Core;
 
 namespace Scripter;
 
@@ -11,19 +12,22 @@ internal sealed partial class ExportedFunctionPage : DynamicListPage
     private readonly ScriptStorageService _storageService;
     private readonly ScriptExecutionService _executionService;
     private readonly ScriptPermissionService _permissionService;
+    private readonly ScripterSettingsManager _settingsManager;
 
     public ExportedFunctionPage(
         ScriptFileEntry entry,
         string functionName,
         ScriptStorageService storageService,
         ScriptExecutionService executionService,
-        ScriptPermissionService permissionService)
+        ScriptPermissionService permissionService,
+        ScripterSettingsManager settingsManager)
     {
         _entry = entry;
         _functionName = functionName;
         _storageService = storageService;
         _executionService = executionService;
         _permissionService = permissionService;
+        _settingsManager = settingsManager;
 
         Name = functionName;
         Title = functionName;
@@ -51,7 +55,8 @@ internal sealed partial class ExportedFunctionPage : DynamicListPage
             _storageService,
             _executionService,
             _permissionService,
-            invocation)
+            invocation,
+            _settingsManager)
         {
             Name = $"Run {_functionName}",
         };

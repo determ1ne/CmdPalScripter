@@ -1,0 +1,12 @@
+{
+  "type": "clearscript",
+  "name": "Power off controller",
+  "description": "Powers off an XInput controller using xinput1_4.dll ordinal 103.",
+  "export": [
+    "power_off_controller"
+  ],
+  "nativeTypes": [],
+  "dynamicImport": false,
+  "commandExecution": false,
+  "nativeFfi": true
+}

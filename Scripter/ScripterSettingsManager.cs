@@ -1,6 +1,7 @@
 using System;
 using System.IO;
 using Microsoft.CommandPalette.Extensions.Toolkit;
+using Scripter.Core;
 
 namespace Scripter;
 
@@ -56,6 +57,18 @@ internal sealed class ScripterSettingsManager : JsonSettingsManager
         }
 
         return Math.Clamp(port, 1, 65535);
+    }
+
+    public ScriptDebugOptions ToDebugOptions()
+    {
+        if (!EnableRemoteDebugging())
+        {
+            return ScriptDebugOptions.Disabled;
+        }
+
+        return new ScriptDebugOptions(
+            PauseOnStart() ? ScriptDebugMode.Break : ScriptDebugMode.Immediate,
+            DebugPort());
     }
 
     private static string SettingsJsonPath()

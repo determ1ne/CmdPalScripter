@@ -9,6 +9,7 @@ using System.Text.Json;
 using System.Text.Json.Nodes;
 using System.Threading;
 using System.Threading.Tasks;
+using Scripter.Core;
 
 namespace Scripter;
 
@@ -20,8 +21,8 @@ internal sealed partial class ScripterPage : DynamicListPage
     private readonly ScriptStorageService _storageService;
     private readonly ScriptPermissionService _permissionService;
     private readonly ScriptExecutionService _executionService;
-    private readonly Action? _scriptsReloaded;
-    private readonly List<ScriptFileEntry> _scriptEntries = [];
+    private readonly ScriptCatalog _catalog;
+    private IReadOnlyList<ScriptFileEntry> _scriptEntries = [];
 
     internal IReadOnlyList<ScriptFileEntry> ScriptEntries => _scriptEntries;
 
@@ -40,8 +41,8 @@ internal sealed partial class ScripterPage : DynamicListPage
             storageService,
             settingsManager,
             new ScriptPermissionService(storageService.RootDirectory),
-            new ScriptExecutionService(settingsManager),
-            null)
+            new ScriptExecutionService(),
+            new ScriptCatalog(storageService.ScriptsDirectory))
     {
     }
 
@@ -50,13 +51,13 @@ internal sealed partial class ScripterPage : DynamicListPage
         ScripterSettingsManager settingsManager,
         ScriptPermissionService permissionService,
         ScriptExecutionService executionService,
-        Action? scriptsReloaded)
+        ScriptCatalog catalog)
     {
         _settingsManager = settingsManager;
         _storageService = storageService;
         _permissionService = permissionService;
         _executionService = executionService;
-        _scriptsReloaded = scriptsReloaded;
+        _catalog = catalog;
 
         Icon = IconHelpers.FromRelativePath("Assets\\StoreLogo.png");
         Title = "Script Library";
@@ -68,7 +69,7 @@ internal sealed partial class ScripterPage : DynamicListPage
             Subtitle = _storageService.ScriptsDirectory,
         };
 
-        ReloadScripts(notify: false);
+        ApplyCatalogSnapshot();
     }
 
     public override void UpdateSearchText(string oldSearch, string newSearch)
@@ -161,22 +162,19 @@ internal sealed partial class ScripterPage : DynamicListPage
             || Path.GetFileName(entry.Path).Contains(query, StringComparison.OrdinalIgnoreCase);
     }
 
-    private void ReloadScripts(bool notify = true)
+    internal void ApplyCatalogSnapshot()
     {
-        _scriptEntries.Clear();
-        _scriptEntries.AddRange(_storageService.GetScriptEntries());
-        if (notify)
-        {
-            _scriptsReloaded?.Invoke();
-        }
+        _scriptEntries = _catalog.Entries
+            .Where(entry => !entry.Path.Equals(_storageService.ScratchpadFilePath, StringComparison.OrdinalIgnoreCase))
+            .ToArray();
+        RaiseItemsChanged();
     }
 
     private ListItem CreateReloadItem()
     {
         var reloadCommand = new AnonymousCommand(() =>
         {
-            ReloadScripts();
-            RaiseItemsChanged();
+            _catalog.Scan();
         })
         {
             Name = "Reload scripts",
@@ -193,7 +191,7 @@ internal sealed partial class ScripterPage : DynamicListPage
 
     private ListItem CreateScratchpadItem()
     {
-        return new ListItem(new CommandItem(new ScriptScratchpadPage(_storageService, _executionService, _permissionService)))
+        return new ListItem(new CommandItem(new ScriptScratchpadPage(_storageService, _executionService, _permissionService, _settingsManager)))
         {
             Title = "Open scratchpad",
             Subtitle = _storageService.ScratchpadFilePath,
@@ -240,8 +238,9 @@ internal sealed partial class ScripterPage : DynamicListPage
             ? "(none)"
             : string.Join(", ", entry.Metadata.NativeTypes.Select(t => t.Name));
         var dynamicImport = entry.Metadata.DynamicImport ? "enabled" : "disabled";
+        var nativeFfi = entry.Metadata.NativeFfi ? "enabled" : "disabled";
 
-        var command = new RunScriptFileCommand(entry, _storageService, _executionService, _permissionService, ScriptInvocation.WholeScript)
+        var command = new RunScriptFileCommand(entry, _storageService, _executionService, _permissionService, ScriptInvocation.WholeScript, _settingsManager)
         {
             Name = "Run script",
         };
@@ -255,7 +254,7 @@ internal sealed partial class ScripterPage : DynamicListPage
             Details = new Details()
             {
                 Title = entry.Metadata.Name,
-                Body = $"{entry.Metadata.Description}\nType: {entry.Metadata.Type}\nNative types: {nativeTypeList}\nDynamic import: {dynamicImport}\nCommand execution: {(entry.Metadata.CommandExecution ? "enabled" : "disabled")}\nLogo: `{entry.LogoPath ?? "default"}`\nPath: `{entry.Path}`",
+                Body = $"{entry.Metadata.Description}\nType: {entry.Metadata.Type}\nNative types: {nativeTypeList}\nDynamic import: {dynamicImport}\nCommand execution: {(entry.Metadata.CommandExecution ? "enabled" : "disabled")}\nNative FFI: {nativeFfi}\nLogo: `{entry.LogoPath ?? "default"}`\nPath: `{entry.Path}`",
             },
         };
     }
@@ -266,7 +265,7 @@ internal sealed partial class ScripterPage : DynamicListPage
         ScriptInvocation invocation,
         string? textToSuggest = null)
     {
-        var command = new RunScriptFileCommand(entry, _storageService, _executionService, _permissionService, invocation)
+        var command = new RunScriptFileCommand(entry, _storageService, _executionService, _permissionService, invocation, _settingsManager)
         {
             Name = $"Run {functionName}",
         };
@@ -303,11 +302,12 @@ internal sealed partial class ScripterPage : DynamicListPage
 
 internal sealed partial class ScriptScratchpadPage : ContentPage
 {
-    private static readonly ScriptMetadata ScratchpadSecurityMetadata = new("Scratchpad", "Scratchpad", [], true, true);
+    private static readonly ScriptMetadata ScratchpadSecurityMetadata = new("Scratchpad", "Scratchpad", [], true, true, true);
 
     private readonly ScriptExecutionService _executionService;
     private readonly ScriptPermissionService _permissionService;
     private readonly ScriptStorageService _storageService;
+    private readonly ScripterSettingsManager _settingsManager;
 
     private readonly MarkdownContent _resultContent;
     private readonly ScriptRunnerForm _scriptForm;
@@ -315,11 +315,13 @@ internal sealed partial class ScriptScratchpadPage : ContentPage
     public ScriptScratchpadPage(
         ScriptStorageService storageService,
         ScriptExecutionService executionService,
-        ScriptPermissionService permissionService)
+        ScriptPermissionService permissionService,
+        ScripterSettingsManager settingsManager)
     {
         _storageService = storageService;
         _executionService = executionService;
         _permissionService = permissionService;
+        _settingsManager = settingsManager;
 
         Icon = IconHelpers.FromRelativePath("Assets\\StoreLogo.png");
         Title = "Scratchpad";
@@ -383,7 +385,9 @@ internal sealed partial class ScriptScratchpadPage : ContentPage
         _resultContent.Body = "Running scratchpad...";
         RaiseItemsChanged();
 
-        _ = _executionService.ExecuteAsync(script, enableDynamicImport: true, allowCommandExecution: true).ContinueWith(task =>
+        var request = ScriptExecutionRequest.ForFile(_storageService.ScratchpadFilePath, script);
+        var options = new ScriptExecutionOptions([], true, true, true);
+        _ = _executionService.ExecuteAsync(request, options, _settingsManager.ToDebugOptions()).ContinueWith(task =>
         {
             var result = task.Result;
 
@@ -419,38 +423,47 @@ internal sealed partial class RunScriptFileCommand : InvokableCommand
     private readonly ScriptExecutionService _executionService;
     private readonly ScriptPermissionService _permissionService;
     private readonly ScriptInvocation _invocation;
+    private readonly ScripterSettingsManager _settingsManager;
 
     public RunScriptFileCommand(
         ScriptFileEntry entry,
         ScriptStorageService storageService,
         ScriptExecutionService executionService,
         ScriptPermissionService permissionService,
-        ScriptInvocation invocation)
+        ScriptInvocation invocation,
+        ScripterSettingsManager settingsManager)
     {
         _entry = entry;
         _storageService = storageService;
         _executionService = executionService;
         _permissionService = permissionService;
         _invocation = invocation;
+        _settingsManager = settingsManager;
     }
 
     public override CommandResult Invoke()
     {
         var script = _storageService.LoadScript(_entry.Path);
-
-        if (!string.Equals(_entry.Metadata.Type, ScriptStorageService.ClearScriptType, StringComparison.OrdinalIgnoreCase))
+        var metadata = ScriptMetadataLoader.Load(_entry.Path);
+        var currentEntry = _entry with
         {
-            return CommandResult.ShowToast($"Unsupported script type '{_entry.Metadata.Type}'.");
+            Metadata = metadata,
+            LogoPath = ScriptMetadataLoader.ResolveLogoPath(_entry.Path),
+        };
+
+        if (!string.Equals(metadata.Type, ScriptMetadata.ClearScriptType, StringComparison.OrdinalIgnoreCase))
+        {
+            return CommandResult.ShowToast($"Unsupported script type '{metadata.Type}'.");
         }
 
-        if (ScriptPermissionService.RequiresPermission(_entry.Metadata)
-            && !_permissionService.IsApproved(_entry.Path, script, _entry.Metadata))
+        if (ScriptPermissionService.RequiresPermission(metadata)
+            && !_permissionService.IsApproved(_entry.Path, script, metadata))
         {
             var confirmArgs = new ConfirmationArgs
             {
                 Title = "⚠ Allow script permissions",
-                Description = ScriptPermissionDescriptionFormatter.BuildDescription(_entry.Metadata.Name, _entry.Metadata),
-                PrimaryCommand = new ApproveAndRunScriptCommand(_entry, _storageService, _executionService, _permissionService, script, _invocation)
+                Description = ScriptPermissionDescriptionFormatter.BuildDescription(metadata.Name, metadata),
+                PrimaryCommand = new ApproveAndRunScriptCommand(currentEntry, _storageService, _executionService, _permissionService, script, _invocation, _settingsManager)
                 {
                     Name = "Allow and run",
                 },
@@ -465,13 +478,15 @@ internal sealed partial class RunScriptFileCommand : InvokableCommand
             return CommandResult.ShowToast("Another script is already running. Stop it first.");
         }
 
-        return StartFileRun(script);
+        return StartFileRun(script, metadata);
     }
 
-    private CommandResult StartFileRun(string script)
+    private CommandResult StartFileRun(string script, ScriptMetadata metadata)
     {
-        var busy = ScriptRunStatus.Show(_entry.Metadata.Name);
-        _ = _executionService.ExecuteAsync(script, _entry.Metadata.NativeTypes, _entry.Metadata.DynamicImport, _entry.Metadata.CommandExecution, _invocation).ContinueWith(task =>
+        var busy = ScriptRunStatus.Show(metadata.Name);
+        var request = ScriptExecutionRequest.ForFile(_entry.Path, script, _invocation);
+        var options = ScriptExecutionOptions.FromMetadata(metadata);
+        _ = _executionService.ExecuteAsync(request, options, _settingsManager.ToDebugOptions()).ContinueWith(task =>
         {
             var result = task.Result;
             var prefix = result.IsSuccess ? "Ran" : "Failed";
@@ -483,14 +498,14 @@ internal sealed partial class RunScriptFileCommand : InvokableCommand
 
             new ToastStatusMessage(new StatusMessage()
             {
-                Message = $"{prefix}: {_entry.Metadata.Name} ({result.DurationMilliseconds} ms)\n{output}",
+                Message = $"{prefix}: {metadata.Name} ({result.DurationMilliseconds} ms)\n{output}",
                 State = result.IsSuccess ? MessageState.Success : MessageState.Error,
             }).Show();
 
             ScriptRunStatus.Complete(
                 busy,
                 result.IsSuccess,
-                _entry.Metadata.Name,
+                metadata.Name,
                 result.DurationMilliseconds);
         });
 
@@ -506,6 +521,7 @@ internal sealed partial class ApproveAndRunScriptCommand : InvokableCommand
     private readonly ScriptPermissionService _permissionService;
     private readonly string _expectedFingerprint;
     private readonly ScriptInvocation _invocation;
+    private readonly ScripterSettingsManager _settingsManager;
 
     public ApproveAndRunScriptCommand(
         ScriptFileEntry entry,
@@ -513,20 +529,23 @@ internal sealed partial class ApproveAndRunScriptCommand : InvokableCommand
         ScriptExecutionService executionService,
         ScriptPermissionService permissionService,
         string scriptSnapshot,
-        ScriptInvocation invocation)
+        ScriptInvocation invocation,
+        ScripterSettingsManager settingsManager)
     {
         _entry = entry;
         _storageService = storageService;
         _executionService = executionService;
         _permissionService = permissionService;
         _invocation = invocation;
+        _settingsManager = settingsManager;
         _expectedFingerprint = ScriptPermissionService.ComputeFingerprint(scriptSnapshot, _entry.Metadata);
     }
 
     public override CommandResult Invoke()
     {
         var script = _storageService.LoadScript(_entry.Path);
-        var currentFingerprint = ScriptPermissionService.ComputeFingerprint(script, _entry.Metadata);
+        var metadata = ScriptMetadataLoader.Load(_entry.Path);
+        var currentFingerprint = ScriptPermissionService.ComputeFingerprint(script, metadata);
         if (!string.Equals(_expectedFingerprint, currentFingerprint, StringComparison.Ordinal))
         {
             return CommandResult.ShowToast(new ToastArgs
@@ -536,14 +555,16 @@ internal sealed partial class ApproveAndRunScriptCommand : InvokableCommand
             });
         }
 
-        _permissionService.Approve(_entry.Path, script, _entry.Metadata);
+        _permissionService.Approve(_entry.Path, script, metadata);
         if (_executionService.IsRunning)
         {
             return CommandResult.ShowToast("Another script is already running. Stop it first.");
         }
 
-        var busy = ScriptRunStatus.Show(_entry.Metadata.Name);
-        _ = _executionService.ExecuteAsync(script, _entry.Metadata.NativeTypes, _entry.Metadata.DynamicImport, _entry.Metadata.CommandExecution, _invocation).ContinueWith(task =>
+        var busy = ScriptRunStatus.Show(metadata.Name);
+        var request = ScriptExecutionRequest.ForFile(_entry.Path, script, _invocation);
+        var options = ScriptExecutionOptions.FromMetadata(metadata);
+        _ = _executionService.ExecuteAsync(request, options, _settingsManager.ToDebugOptions()).ContinueWith(task =>
         {
             var result = task.Result;
             var prefix = result.IsSuccess ? "Ran" : "Failed";
@@ -555,14 +576,14 @@ internal sealed partial class ApproveAndRunScriptCommand : InvokableCommand
 
             new ToastStatusMessage(new StatusMessage()
             {
-                Message = $"{prefix}: {_entry.Metadata.Name} ({result.DurationMilliseconds} ms)\n{output}",
+                Message = $"{prefix}: {metadata.Name} ({result.DurationMilliseconds} ms)\n{output}",
                 State = result.IsSuccess ? MessageState.Success : MessageState.Error,
             }).Show();
 
             ScriptRunStatus.Complete(
                 busy,
                 result.IsSuccess,
-                _entry.Metadata.Name,
+                metadata.Name,
                 result.DurationMilliseconds);
         });
 
@@ -666,13 +687,13 @@ internal sealed partial class ApproveAndRunScratchpadCommand : InvokableCommand
         _storageService = storageService;
         _executionService = executionService;
         _permissionService = permissionService;
-        _expectedFingerprint = ScriptPermissionService.ComputeFingerprint(scriptSnapshot, new ScriptMetadata("Scratchpad", "Scratchpad", [], true, true));
+        _expectedFingerprint = ScriptPermissionService.ComputeFingerprint(scriptSnapshot, new ScriptMetadata("Scratchpad", "Scratchpad", [], true, true, true));
     }
 
     public override CommandResult Invoke()
     {
         var script = _storageService.LoadScript(_storageService.ScratchpadFilePath);
-        var metadata = new ScriptMetadata("Scratchpad", "Scratchpad", [], true, true);
+        var metadata = new ScriptMetadata("Scratchpad", "Scratchpad", [], true, true, true);
         var currentFingerprint = ScriptPermissionService.ComputeFingerprint(script, metadata);
         if (!string.Equals(_expectedFingerprint, currentFingerprint, StringComparison.Ordinal))
         {

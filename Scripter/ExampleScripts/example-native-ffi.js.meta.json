@@ -1,0 +1,9 @@
+{
+  "type": "clearscript",
+  "name": "Native FFI process ID",
+  "description": "Loads kernel32.dll and calls GetCurrentProcessId through the generic native FFI API.",
+  "nativeTypes": [],
+  "dynamicImport": false,
+  "commandExecution": false,
+  "nativeFfi": true
+}

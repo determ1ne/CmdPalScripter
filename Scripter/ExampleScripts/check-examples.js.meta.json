@@ -1,0 +1,18 @@
+{
+  "type": "clearscript",
+  "name": "Script examples",
+  "description": "Check for script examples on GitHub.",
+  "nativeTypes": [
+    {
+      "name": "ProcessStartInfo",
+      "typeName": "System.Diagnostics.ProcessStartInfo, System.Diagnostics.Process"
+    },
+    {
+      "name": "Process",
+      "typeName": "System.Diagnostics.Process, System.Diagnostics.Process"
+    }
+  ],
+  "dynamicImport": false,
+  "commandExecution": false,
+  "nativeFfi": false
+}

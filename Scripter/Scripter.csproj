@@ -45,12 +45,12 @@
     <ProjectCapability Include="Msix" />
   </ItemGroup>
   <ItemGroup>
-    <PackageReference Include="Microsoft.ClearScript" />
-    <PackageReference Include="Microsoft.ClearScript.V8" />
+    <ProjectReference Include="..\Scripter.Core\Scripter.Core.csproj" />
+  </ItemGroup>
+  <ItemGroup>
     <PackageReference Include="Microsoft.CommandPalette.Extensions" />
     <PackageReference Include="Microsoft.Windows.CsWinRT" />
     <PackageReference Include="Shmuelie.WinRTServer" />
-    <PackageReference Include="System.Security.Cryptography.ProtectedData" />
     <PackageReference Include="System.Text.Encoding.CodePages" />
 
     <!-- Needed to enable building an MSIX package -->

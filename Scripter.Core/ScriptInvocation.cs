@@ -1,16 +1,14 @@
-using System;
-using System.Collections.Generic;
 using System.Globalization;
 using System.Text;
 
-namespace Scripter;
+namespace Scripter.Core;
 
-internal sealed record ScriptInvocation(string? FunctionName, IReadOnlyList<string> Arguments)
+public sealed record ScriptInvocation(string? FunctionName, IReadOnlyList<string> Arguments)
 {
     public static ScriptInvocation WholeScript { get; } = new(null, []);
 }
 
-internal static class ScriptInvocationParser
+public static class ScriptInvocationParser
 {
     public static bool TryParse(string query, string commandName, out ScriptInvocation invocation)
     {
@@ -26,9 +24,7 @@ internal static class ScriptInvocationParser
             return false;
         }
 
-        var argumentText = trimmed.Length == commandName.Length
-            ? string.Empty
-            : trimmed[commandName.Length..];
+        var argumentText = trimmed.Length == commandName.Length ? string.Empty : trimmed[commandName.Length..];
         invocation = new ScriptInvocation(commandName, ParseArguments(argumentText));
         return true;
     }

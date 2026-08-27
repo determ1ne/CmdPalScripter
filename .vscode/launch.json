@@ -1,0 +1,28 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "Attach Scripter Debugger",
+      "type": "pwa-node",
+      "request": "attach",
+      "address": "127.0.0.1",
+      "port": 9222,
+      "localRoot": "${workspaceFolder}",
+      "remoteRoot": "${workspaceFolder}",
+      "restart": true,
+      "timeout": 30000
+    },
+    {
+      "name": "Debug Current JS with Scripter",
+      "type": "pwa-node",
+      "request": "attach",
+      "address": "127.0.0.1",
+      "port": 9222,
+      "localRoot": "${workspaceFolder}",
+      "remoteRoot": "${workspaceFolder}",
+      "restart": true,
+      "timeout": 30000,
+      "preLaunchTask": "Start Scripter Debug Watch"
+    }
+  ]
+}
